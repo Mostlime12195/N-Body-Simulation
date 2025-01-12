@@ -1,21 +1,24 @@
 # C++ N-Body Simulation
-This N-Body Simulation made in C++ and Raylib, was created as a hobby for fun.
+This N-Body Simulation is compiled in C++ and Raylib. It does not use the Barnes-Hut model, so it can only handle several hundred, maybe a thousand, particles at a smooth 60 fps.
+
+Feel free to use this repo for your own use, but don't expect the best quality.
 
 ## Features:
 - Adjustable simulation area (must change the minX, maxX, minY, maxY, variables within the code)
-- Pleasing visuals (dynamically coloured particles, grid with visible borders)
+- Pleasing visuals (dynamically coloured particles, grid with dark borders)
 - Inelastic collisions (modifiable via code)
-- Particles coloured by their stored energy
+- Particles coloured based on their their kinetic + potential energy (Blue -> Red)
 - Spawn particles anywhere
+- Adjustable number of particles to spawn on start
+- Useful stats
 
-![image](https://github.com/user-attachments/assets/135fbad3-6b2d-4146-8e51-20ebf5ca68c3)
+![image](Assets/thumbnail.png)
 
 # Important notes
 
-- This project does NOT use the Barnes-Hut model at the moment. I understand that it would be tremendously quicker and would be able to simulate millions more particles with the Barnes-Hut model, but I am not that talented at the moment.
+- This project does NOT use the Barnes-Hut model at the moment. I understand that this simulation would be tremendously quicker and would be able to simulate millions more particles with the Barnes-Hut model, but I am not that talented at this time. I will experiment with the Barnes-Hut model, but I will not implement it here until I feel ready.
 - This is an amateur project. I'm a 16 year old with no formal education in programming, I have only ever been taught through the internet in my free-time. Do not expect quality.
-- While simulating, you'll notice that each particle changes colour based on their speed and/or gravitational potential energy. I do not know whether my calculations for these are correct or not, but given that it produces pretty colours, I am not going to fix it.
-- Particles in the centre of clumps may start glitching out, this is normal. I understand what the issue is and how to fix it, but given that the simulation runs mostly fine without the fix, I'm not keen on patching it at the moment unless I have a burst of motivation. For your knowledge, the fix *should* be to increase the amount of collision checks per frame, decreasing the FPS, but making far more accurate collision interactions.
+- Particles in the centre of clumps may start glitching out, this is normal. I understand what the issue is, but given that the simulation runs mostly fine without the fix, I'm not keen on patching it at the moment unless I have a burst of motivation. For your knowledge, the fix *should* be to increase the amount of collision checks per frame, decreasing the FPS, but making far more accurate collision interactions.
 
 # How to run
 
@@ -37,5 +40,14 @@ You can find Raylib's Notepad++ inside of the raylib installation directory. Wit
 #### Notes:
 - 'gcc' must be replaced with 'g++' because the project does not work with a C compiler, and thus you must compile it with a C++ compiler instead.
 
-### If you use any other version of Notepad++:
-I have not compiled this project under any other version of Notepad, so I suggest that you either use Raylib's NP++, or you search for help elsewhere online.
+### If you use any other edition of Notepad++:
+I have not compiled this project under any other version of NP++, so I suggest that you either use Raylib's NP++, or you search for help elsewhere online.
+
+
+# How to use
+
+- Left click anywhere to spawn a particle.
+- Left click and drag to spawn a particle with a direction and velocity (direction will be where you move your mouse).
+- Hold right click to pan the camera.
+- You can also use the arrow keys to pan the camera.
+- Use the scroll wheel to zoom in and out with the camera.

@@ -1,8 +1,6 @@
 #include "raylib.h"
 #include "raymath.h"
-#include "rlgl.h"
 
-#include <iostream>
 #include <vector>
 
 struct Particle {
@@ -21,18 +19,18 @@ int main(void)
     // Initialization
     //--------------------------------------------------------------------------------------
     // Settings:
-        const int screenWidth = 1000;
-        const int screenHeight = 600;
+        const int screenWidth = 1400;
+        const int screenHeight = 800;
         
         float minX = -2000.0f;   // Minimum X-coordinate (left boundary)
         float maxX = 2000.0f;  // Maximum X-coordinate (right boundary)
         float minY = -2000.0f;   // Minimum Y-coordinate (top boundary)
         float maxY = 2000.0f;  // Maximum Y-coordinate (bottom boundary)
         
-        bool spawn_on_load = false; // Load particles
+        bool spawn_on_load = true; // Load particles
             
-            int stepSizeX = 200;
-            int stepSizeY = 200;
+            int stepSizeX = 150;
+            int stepSizeY = 150;
         
         
     
@@ -41,12 +39,13 @@ int main(void)
     // Other variables:
     
         
-        const float GravConst = 0.000000000067;
+        const float gravConst = 0.000000000067;
         
         std::vector<Particle> parts;
         
         Camera2D camera = { 0 };
-        camera.zoom = 1.0f;
+        camera.zoom = 0.30f;
+        camera.target = {-3000, -1500};
         
         Vector2 init_pos;
         Vector2 fin_pos;
@@ -139,7 +138,6 @@ int main(void)
         
         for (int i = 0; i < parts.size(); i++) {
             Particle &p1 = parts[i];
-            p1.potEnergy = 0.0f; // Calculated later when calculating gravitational pulls
             
             p1.kinEnergy = 0.5 * pow(Vector2Length(p1.velocity), 2);
             
@@ -165,48 +163,55 @@ int main(void)
             
             for (int d = i + 1; d < parts.size(); d++) {
                 Particle &p2 = parts[d];
-
+                
                 float dist = Vector2Distance(p1.position, p2.position);
+                
+                    dist = Vector2Distance(p1.position, p2.position);
+                    if (dist < 20.0f) {
+                        Vector2 normal = Vector2Normalize(Vector2Subtract(p2.position, p1.position));
+                        float overlap = 20.0f - dist;
 
-                if (dist < 20.0f) {
-                    Vector2 normal = Vector2Normalize(Vector2Subtract(p2.position, p1.position));
-                    float overlap = 20.0f - dist;
+                        // Resolve overlap by moving particles apart
+                        Vector2 resolution = Vector2Scale(normal, overlap / 2.0f);
+                        p1.position = Vector2Subtract(p1.position, resolution);
+                        p2.position = Vector2Add(p2.position, resolution);
 
-                    // Resolve overlap by moving particles apart
-                    Vector2 resolution = Vector2Scale(normal, overlap / 2.0f);
-                    p1.position = Vector2Subtract(p1.position, resolution);
-                    p2.position = Vector2Add(p2.position, resolution);
+                        // Calculate relative velocity
+                        Vector2 relative_velocity = Vector2Subtract(p2.velocity, p1.velocity);
+                        float speed = Vector2DotProduct(relative_velocity, normal);
 
-                    // Calculate relative velocity
-                    Vector2 relative_velocity = Vector2Subtract(p2.velocity, p1.velocity);
-                    float speed = Vector2DotProduct(relative_velocity, normal);
+                        if (speed < 0) { // Only resolve collisions if particles are moving toward each other
+                            float restitution = 0.8f; // Slightly inelastic collision
+                            float impulse = (-(1.0f + restitution) * speed) / 2.0f;
 
-                    if (speed < 0) { // Only resolve collisions if particles are moving toward each other
-                        float restitution = 0.8f; // Slightly inelastic collision
-                        float impulse = (-(1.0f + restitution) * speed) / 2.0f;
-
-                        // Apply impulse to velocities
-                        Vector2 impulseVector = Vector2Scale(normal, impulse);
-                        p1.velocity = Vector2Subtract(p1.velocity, impulseVector);
-                        p2.velocity = Vector2Add(p2.velocity, impulseVector);
+                            // Apply impulse to velocities
+                            Vector2 impulseVector = Vector2Scale(normal, impulse);
+                            p1.velocity = Vector2Subtract(p1.velocity, impulseVector);
+                            p2.velocity = Vector2Add(p2.velocity, impulseVector);
+                        }
                     }
-                }
-
+                
+                float force = (gravConst * 25000000000000) / pow(dist, 2.0);
+                
                 // Gravitational force calculation
                 if (dist > 20.0f) { // Only apply gravity if particles are not colliding
                     float angle = atan2(p2.position.y - p1.position.y, p2.position.x - p1.position.x);
-                    float force = (GravConst * 1000000000000000) / pow(dist, 2.0);
-                    p1.potEnergy += force * GetFrameTime();
-                    p1.velocity.x += force * cos(angle) * GetFrameTime();
-                    p1.velocity.y += force * sin(angle) * GetFrameTime();
-                    p2.potEnergy += force * GetFrameTime();
-                    p2.velocity.x -= force * cos(angle) * GetFrameTime();
-                    p2.velocity.y -= force * sin(angle) * GetFrameTime();
+                    
+                    p1.velocity.x += force * cos(angle);
+                    p1.velocity.y += force * sin(angle);
+                    p2.velocity.x -= force * cos(angle);
+                    p2.velocity.y -= force * sin(angle);
                 }
+                
+                p1.potEnergy += force;
+                p2.potEnergy += force;
             }
         
-        float normalizedEnergy = Normalize(p1.potEnergy  + (p1.kinEnergy / 1000), 0, 50.0f);
+        // 1.3, 1500, and 200 are arbitrary numbers, tweaked to perfection.
+        float normalizedEnergy = Normalize((p1.potEnergy * 1.3) + (p1.kinEnergy / 1500), 0, 200.0f);
         normalizedEnergy = Clamp(normalizedEnergy, 0.0f, 1.0f);
+        
+        p1.potEnergy = 0.0f; // Resets it for the next frame.
         
         int r = (int)(normalizedEnergy * 255);
         int b = (int)((1.0f - normalizedEnergy) * 255);
@@ -231,19 +236,19 @@ int main(void)
             
             for (float x = minX; x <= maxX; x += 100) {
                 if(x == minX or x == maxX) {
-                    DrawLine(x, minX, x, maxX, DARKGRAY);
+                    DrawLine(x, minY, x, maxY, DARKGRAY);
                     continue;
                 }
-                DrawLine(x, minX, x, maxX, LIGHTGRAY);  // Vertical lines across the play area
+                DrawLine(x, minY, x, maxY, LIGHTGRAY);  // Vertical lines across the play area
             }
 
             // Draw horizontal lines (for y-axis, covering the range from -2000 to 2000)
             for (float y = minY; y <= maxY; y += 100) {
                 if(y == minY or y == maxY) {
-                    DrawLine(minY, y, maxY, y, DARKGRAY);
+                    DrawLine(minX, y, maxX, y, DARKGRAY);
                     continue;
                 }
-                DrawLine(minY, y, maxY, y, LIGHTGRAY);  // Horizontal lines across the play area
+                DrawLine(minX, y, maxX, y, LIGHTGRAY);  // Horizontal lines across the play area
             }
             
             for(Particle &p : parts) {
