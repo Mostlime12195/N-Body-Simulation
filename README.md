@@ -10,7 +10,7 @@ Feel free to use this repo for your own use.
 - Spawn particles in-game with velocities and directions of your choosing
 - Adjustable number of particles to spawn on start
 - In-game gravity manipulation
-- 
+- Basic multi-threading capabilities
 
 ![image](Assets/thumbnail.png)
 
