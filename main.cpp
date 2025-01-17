@@ -22,7 +22,7 @@ void CreateParticle(std::vector<Particle> &particles, Vector2 velocity, Vector2 
 void SetGravitationalPull(Particle &p1, Particle &p2, float force);
 void DrawGrid(float minX, float minY, float maxX, float maxY);
 void SpawnParticleBatch(std::vector<Particle> &parts, float minX, float maxX, float minY, float maxY, float stepSizeX, float stepSizeY);
-void UpdateParticles(std::vector<Particle> &parts, int start, int end, float minX, float minY, float maxX, float maxY);
+void UpdateParticles(std::vector<Particle> &parts, int start, int end, float minX, float minY, float maxX, float maxY, float gravConst);
 void ComputeForces(std::vector<Particle> &parts, int start, int end, float gravConst, bool collisionsEnabled);
 
 //------------------------------------------------------------------------------------
@@ -43,10 +43,10 @@ int main(void)
 
     bool spawn_on_load = true; // Load particles
 
-    int stepSizeX = 200;
-    int stepSizeY = 200;
+    int stepSizeX = 150;
+    int stepSizeY = 150;
 
-    const int threadCount = 4;
+    const int threadCount = 7;
 
     bool collisionsEnabled = true;
 
@@ -192,7 +192,7 @@ int main(void)
             }
         } 
         
-        UpdateParticles(parts, 0, parts.size(), minX, minY, maxX, maxY);
+        UpdateParticles(parts, 0, parts.size(), minX, minY, maxX, maxY, gravConst);
 
         //----------------------------------------------------------------------------------
 
@@ -304,8 +304,8 @@ void SetGravitationalPull(Particle &p1, Particle &p2, float force)
 
     p1.velocity.x += force * cos(angle);
     p1.velocity.y += force * sin(angle);
-    p2.velocity.x -= force * cos(angle);
-    p2.velocity.y -= force * sin(angle);
+    //p2.velocity.x -= force * cos(angle);
+    //p2.velocity.y -= force * sin(angle);
 }
 
 void DrawGrid(float minX, float minY, float maxX, float maxY)
@@ -342,7 +342,7 @@ void SpawnParticleBatch(std::vector<Particle> &parts, float minX, float maxX, fl
     }
 }
 
-void UpdateParticles(std::vector<Particle> &parts, int start, int end, float minX, float minY, float maxX, float maxY)
+void UpdateParticles(std::vector<Particle> &parts, int start, int end, float minX, float minY, float maxX, float maxY, float gravConst)
 {
     for (int i = start; i < end; i++)
     {
@@ -371,6 +371,13 @@ void UpdateParticles(std::vector<Particle> &parts, int start, int end, float min
             p1.position.y = maxY - 10;      // Stop or reflect the particle at the bottom boundary
             p1.velocity.y = -p1.velocity.y; // Reflect velocity if you want bouncing effect
         }
+
+        float normalizedEnergy = Normalize((p1.potEnergy * 1800 / gravConst) + (p1.kinEnergy / 1500), 0, 200.0f);
+        normalizedEnergy = Clamp(normalizedEnergy, 0.0f, 1.0f);
+
+        p1.potEnergy = 0.0f; // Resets it for the next frame.
+
+        p1.color = ColorLerp({0U, 12U, 255U, 255U}, {255U, 12U, 0U, 225U}, normalizedEnergy);
 
         // Update position after resolving collisions and applying forces
         p1.position.x += p1.velocity.x * GetFrameTime();
@@ -432,15 +439,7 @@ void ComputeForces(std::vector<Particle> &parts, int start, int end, float gravC
             }
 
             p1.potEnergy += force;
-            p2.potEnergy += force;
+            //p2.potEnergy += force;
         }
-
-        // 1.3, 1500, and 200 are arbitrary numbers, tweaked to perfection.
-        float normalizedEnergy = Normalize((p1.potEnergy * 1300 / gravConst) + (p1.kinEnergy / 1500), 0, 200.0f);
-        normalizedEnergy = Clamp(normalizedEnergy, 0.0f, 1.0f);
-
-        p1.potEnergy = 0.0f; // Resets it for the next frame.
-
-        p1.color = ColorLerp({0U, 12U, 255U, 255U}, {255U, 12U, 0U, 225U}, normalizedEnergy);
     }
 }
