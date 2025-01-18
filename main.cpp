@@ -4,11 +4,6 @@
 #include <vector>
 #include <thread>
 
-#include <iostream>
-
-#include <mutex>
-
-
 struct Particles
 {
     std::vector<Vector2> pos;
