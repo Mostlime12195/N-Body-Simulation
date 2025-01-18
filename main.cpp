@@ -9,21 +9,27 @@
 #include <mutex>
 
 
-struct Particle
+struct Particles
 {
-    Vector2 position;
-    Vector2 velocity;
-    Color color = BLACK;
-    float potEnergy; // Potential Energy
-    float kinEnergy; // Kinetic Energy
+    std::vector<Vector2> pos;
+    std::vector<Vector2> vel;
+    std::vector<Color> color;
+    std::vector<float> potEnergy; // Potential Energy
+    std::vector<float> kinEnergy; // Kinetic Energy
 };
 
-void CreateParticle(std::vector<Particle> &particles, Vector2 velocity, Vector2 position);
-void SetGravitationalPull(Particle &p1, Particle &p2, float force);
-void DrawGrid(float minX, float minY, float maxX, float maxY);
-void SpawnParticleBatch(std::vector<Particle> &parts, float minX, float maxX, float minY, float maxY, float stepSizeX, float stepSizeY);
-void UpdateParticles(std::vector<Particle> &parts, int start, int end, float minX, float minY, float maxX, float maxY, float gravConst);
-void ComputeForces(std::vector<Particle> &parts, int start, int end, float gravConst, bool collisionsEnabled);
+
+void CreateParticle(Particles &parts, Vector2 vel, Vector2 pos);
+void SetGravitationalPull(Vector2 &p1Vel, Vector2 &p1Pos, Vector2 &p2Vel, Vector2 &p2Pos, float force);
+void DrawGrid();
+void SpawnParticleBatch(Particles &parts, float stepSizeX, float stepSizeY);
+void UpdateParticles(Particles &parts, int start, int end, float gravConst);
+void ComputeForces(Particles &parts, int start, int end, float gravConst, bool collisionsEnabled);
+
+float minX = -2000.0f; // Minimum X-coordinate (left boundary)
+float maxX = 2000.0f;  // Maximum X-coordinate (right boundary)
+float minY = -2000.0f; // Minimum Y-coordinate (top boundary)
+float maxY = 2000.0f;  // Maximum Y-coordinate (bottom boundary)
 
 //------------------------------------------------------------------------------------
 // Program main entry point
@@ -36,15 +42,10 @@ int main(void)
     const int screenWidth = 1400;
     const int screenHeight = 800;
 
-    float minX = -2000.0f; // Minimum X-coordinate (left boundary)
-    float maxX = 2000.0f;  // Maximum X-coordinate (right boundary)
-    float minY = -2000.0f; // Minimum Y-coordinate (top boundary)
-    float maxY = 2000.0f;  // Maximum Y-coordinate (bottom boundary)
-
     bool spawn_on_load = true; // Load particles
 
-    int stepSizeX = 150;
-    int stepSizeY = 150;
+    int stepSizeX = 130;
+    int stepSizeY = 130;
 
     const int threadCount = 7;
 
@@ -52,10 +53,14 @@ int main(void)
 
     // Other variables:
 
-    float gravConst = 3200.0f;
+    float gravConst = 1600.0f;
 
-    std::vector<Particle> parts;
-    parts.reserve(1000); // Preallocate space for up to 1,000 particles, so that it does not have to dynamically, this is a performance improvement.
+    Particles parts;
+    parts.pos.reserve(2000);
+    parts.vel.reserve(2000);
+    parts.color.reserve(2000);
+    parts.kinEnergy.reserve(2000);
+    parts.potEnergy.reserve(2000);
 
     Camera2D camera = {0};
     camera.zoom = 0.30f;
@@ -68,9 +73,10 @@ int main(void)
 
     if (spawn_on_load)
     {
-        SpawnParticleBatch(parts, minX, maxX, minY, maxY, stepSizeX, stepSizeY);
+        SpawnParticleBatch(parts, stepSizeX, stepSizeY);
     }
 
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(screenWidth, screenHeight, "N-Body Simulation");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
 
@@ -100,15 +106,15 @@ int main(void)
             float dist = Vector2Distance(init_pos, fin_pos);
             float angle = atan2(fin_pos.y - init_pos.y, fin_pos.x - init_pos.x);
 
-            Vector2 velocity = Vector2Zero();
+            Vector2 vel = Vector2Zero();
 
             if (dist > 0.25f)
             {
-                velocity.x = dist * cos(angle);
-                velocity.y = dist * sin(angle);
+                vel.x = dist * cos(angle);
+                vel.y = dist * sin(angle);
             }
 
-            CreateParticle(parts, velocity, init_pos);
+            CreateParticle(parts, vel, init_pos);
         }
 
         if (GetMouseWheelMove() != 0)
@@ -156,10 +162,15 @@ int main(void)
 
         if (IsKeyPressed(KEY_R))
         {
-            parts.clear();
+            parts.pos.clear();
+            parts.vel.clear();
+            parts.color.clear();
+            parts.kinEnergy.clear();
+            parts.potEnergy.clear();
+
             if (spawn_on_load)
             {
-                SpawnParticleBatch(parts, minX, maxX, minY, maxY, stepSizeX, stepSizeY);
+                SpawnParticleBatch(parts, stepSizeX, stepSizeY);
             }
         }
 
@@ -173,9 +184,9 @@ int main(void)
         camera.target.x += (IsKeyDown(KEY_RIGHT) - IsKeyDown(KEY_LEFT)) * 30;
         camera.target.y += (IsKeyDown(KEY_DOWN) - IsKeyDown(KEY_UP)) * 30;
 
-        int particlesPerThread = parts.size() / threadCount;
-        int remainingParticles = parts.size() % threadCount;
-        
+        int particlesPerThread = parts.kinEnergy.size() / threadCount;
+        int remainingParticles = parts.kinEnergy.size() % threadCount;
+
         for (int t = 0; t < threadCount; t++)
         {
             int start = t * particlesPerThread + std::min(t, remainingParticles);
@@ -190,9 +201,9 @@ int main(void)
             {
                 t.join();
             }
-        } 
+        }
+
         
-        UpdateParticles(parts, 0, parts.size(), minX, minY, maxX, maxY, gravConst);
 
         //----------------------------------------------------------------------------------
 
@@ -205,14 +216,20 @@ int main(void)
         BeginMode2D(camera);
 
         // Draw Grid, duh
-        DrawGrid(minX, minY, maxX, maxY);
+        DrawGrid();
 
         
-        for (Particle &p : parts)
+        for (int i = 0; i < parts.kinEnergy.size(); i++)
         {
-            DrawTextureEx(texture, Vector2SubtractValue(p.position, 10), 0.0f, 1.0f, p.color);
+            DrawTextureEx(texture, Vector2SubtractValue(parts.pos[i], 10), 0.0f, 1.0f, parts.color[i]);
+        }
+
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            DrawLineEx(init_pos, GetScreenToWorld2D(GetMousePosition(), camera), 5.0f,{Clamp(Normalize(0.5 * pow(Vector2Distance(GetScreenToWorld2D(GetMousePosition(), camera), init_pos), 2.0f), 0.0f, 1000.0f), 0, 255.0f), 0U, 0U, 255U});
         }
         
+
         EndMode2D();
 
         DrawText("N-Body Simulation |", 20, 10, 20, BLACK);
@@ -233,7 +250,7 @@ int main(void)
         DrawText("to zoom in/out", 245, 130, 20, GRAY);
 
         DrawText("Particles:", 20, 170, 20, BLACK);
-        DrawText(TextFormat("%i", parts.size()), 250, 170, 20, DARKBLUE);
+        DrawText(TextFormat("%i", parts.kinEnergy.size()), 250, 170, 20, DARKBLUE);
         DrawText("Left Click", 20, 190, 20, RED);
         DrawText("to spawn particles (Hold to set velocity and direction)", 130, 190, 20, GRAY);
 
@@ -289,26 +306,24 @@ int main(void)
     return 0;
 }
 
-void CreateParticle(std::vector<Particle> &particles, Vector2 velocity, Vector2 position)
+void CreateParticle(Particles &parts, Vector2 vel, Vector2 pos)
 {
-    Particle p;
-    p.velocity = velocity;
-    p.position = position;
-
-    particles.push_back(p);
+    parts.pos.push_back(pos);
+    parts.vel.push_back(vel);
+    parts.color.push_back(BLACK);
+    parts.kinEnergy.push_back(0.0f);
+    parts.potEnergy.push_back(0.0f);
 }
 
-void SetGravitationalPull(Particle &p1, Particle &p2, float force)
+void SetGravitationalPull(Vector2 &p1Vel, Vector2 &p1Pos, Vector2 &p2Vel, Vector2 &p2Pos, float force)
 {
-    float angle = atan2(p2.position.y - p1.position.y, p2.position.x - p1.position.x);
+    float angle = atan2(p2Pos.y - p1Pos.y, p2Pos.x - p1Pos.x);
 
-    p1.velocity.x += force * cos(angle);
-    p1.velocity.y += force * sin(angle);
-    //p2.velocity.x -= force * cos(angle);
-    //p2.velocity.y -= force * sin(angle);
+    p1Vel.x += force * cos(angle);
+    p1Vel.y += force * sin(angle);
 }
 
-void DrawGrid(float minX, float minY, float maxX, float maxY)
+void DrawGrid()
 {
     for (float y = minY; y <= maxY; y += 100)
     {
@@ -331,7 +346,7 @@ void DrawGrid(float minX, float minY, float maxX, float maxY)
     }
 }
 
-void SpawnParticleBatch(std::vector<Particle> &parts, float minX, float maxX, float minY, float maxY, float stepSizeX, float stepSizeY)
+void SpawnParticleBatch(Particles &parts, float stepSizeX, float stepSizeY)
 {
     for (int x = minX + stepSizeX; x < maxX; x += stepSizeX)
     {
@@ -342,80 +357,84 @@ void SpawnParticleBatch(std::vector<Particle> &parts, float minX, float maxX, fl
     }
 }
 
-void UpdateParticles(std::vector<Particle> &parts, int start, int end, float minX, float minY, float maxX, float maxY, float gravConst)
+void UpdateParticles(Particles &parts, int start, int end, float gravConst)
 {
     for (int i = start; i < end; i++)
     {
-        Particle &p1 = parts[i];
+        Vector2 &p1Pos = parts.pos[i];
+        Vector2 &p1Vel = parts.vel[i];
+
 
         // X boundaries
-        if (p1.position.x < minX + 10)
+        if (p1Pos.x < minX + 10)
         {
-            p1.position.x = minX + 10;      // Stop or reflect the particle at the left boundary
-            p1.velocity.x = -p1.velocity.x; // Reflect velocity if you want bouncing effect
+            p1Pos.x = minX + 10;      // Stop or reflect the particle at the left boundary
+            p1Vel.x = -p1Vel.x; // Reflect velocity if you want bouncing effect
         }
-        else if (p1.position.x > maxX - 10)
+        else if (p1Pos.x > maxX - 10)
         {
-            p1.position.x = maxX - 10;      // Stop or reflect the particle at the right boundary
-            p1.velocity.x = -p1.velocity.x; // Reflect velocity if you want bouncing effect
+            p1Pos.x = maxX - 10;      // Stop or reflect the particle at the right boundary
+            p1Vel.x = -p1Vel.x; // Reflect velocity if you want bouncing effect
         }
 
         // Y boundaries
-        if (p1.position.y < minY + 10)
+        if (p1Pos.y < minY + 10)
         {
-            p1.position.y = minY + 10;      // Stop or reflect the particle at the top boundary
-            p1.velocity.y = -p1.velocity.y; // Reflect velocity if you want bouncing effect
+            p1Pos.y = minY + 10;      // Stop or reflect the particle at the top boundary
+            p1Vel.y = -p1Vel.y; // Reflect velocity if you want bouncing effect
         }
-        else if (p1.position.y > maxY - 10)
+        else if (p1Pos.y > maxY - 10)
         {
-            p1.position.y = maxY - 10;      // Stop or reflect the particle at the bottom boundary
-            p1.velocity.y = -p1.velocity.y; // Reflect velocity if you want bouncing effect
+            p1Pos.y = maxY - 10;      // Stop or reflect the particle at the bottom boundary
+            p1Vel.y = -p1Vel.y; // Reflect velocity if you want bouncing effect
         }
 
-        float normalizedEnergy = Normalize((p1.potEnergy * 1800 / gravConst) + (p1.kinEnergy / 1500), 0, 200.0f);
+        float normalizedEnergy = Normalize((parts.potEnergy[i] * 1800 / gravConst) + (parts.kinEnergy[i] / 1500), 0, 200.0f);
         normalizedEnergy = Clamp(normalizedEnergy, 0.0f, 1.0f);
 
-        p1.potEnergy = 0.0f; // Resets it for the next frame.
+        parts.potEnergy[i] = 0.0f; // Resets it for the next frame.
 
-        p1.color = ColorLerp({0U, 12U, 255U, 255U}, {255U, 12U, 0U, 225U}, normalizedEnergy);
+        parts.color[i] = ColorLerp({0U, 12U, 255U, 255U}, {255U, 12U, 0U, 225U}, normalizedEnergy);
 
         // Update position after resolving collisions and applying forces
-        p1.position.x += p1.velocity.x * GetFrameTime();
-        p1.position.y += p1.velocity.y * GetFrameTime();
+        p1Pos.x += p1Vel.x * GetFrameTime();
+        p1Pos.y += p1Vel.y * GetFrameTime();
     }
 }
 
-void ComputeForces(std::vector<Particle> &parts, int start, int end, float gravConst, bool collisionsEnabled)
+void ComputeForces(Particles &parts, int start, int end, float gravConst, bool collisionsEnabled)
 {
     for (int i = start; i < end; i++)
     {
-        Particle &p1 = parts[i];
+        Vector2 &p1Pos = parts.pos[i];
+        Vector2 &p1Vel = parts.vel[i];
 
-        p1.kinEnergy = 0.5 * pow(Vector2Length(p1.velocity), 2);
+        parts.kinEnergy[i] = 0.5 * pow(Vector2Length(p1Vel), 2);
 
-        for (int d = 0; d < parts.size(); d++)
+        for (int d = 0; d < parts.kinEnergy.size(); d++)
         {
             if (i == d)
             {
                 continue;
             }
-            
 
-            Particle &p2 = parts[d];
 
-            float dist = Vector2Distance(p1.position, p2.position);
+            Vector2 &p2Pos = parts.pos[d];
+            Vector2 &p2Vel = parts.vel[d];
+
+            float dist = Vector2Distance(p1Pos, p2Pos);
             if (dist < 20.0f and collisionsEnabled)
             {
-                Vector2 normal = Vector2Normalize(Vector2Subtract(p2.position, p1.position));
+                Vector2 normal = Vector2Normalize(Vector2Subtract(p2Pos, p1Pos));
                 float overlap = 20.0f - dist;
 
                 // Resolve overlap by moving particles apart
                 Vector2 resolution = Vector2Scale(normal, overlap / 2.0f);
-                p1.position = Vector2Subtract(p1.position, resolution);
-                p2.position = Vector2Add(p2.position, resolution);
+                p1Pos = Vector2Subtract(p1Pos, resolution);
+                p2Pos = Vector2Add(p2Pos, resolution);
 
                 // Calculate relative velocity
-                Vector2 relative_velocity = Vector2Subtract(p2.velocity, p1.velocity);
+                Vector2 relative_velocity = Vector2Subtract(p2Vel, p1Vel);
                 float speed = Vector2DotProduct(relative_velocity, normal);
 
                 if (speed < 0)
@@ -425,8 +444,8 @@ void ComputeForces(std::vector<Particle> &parts, int start, int end, float gravC
 
                     // Apply impulse to velocities
                     Vector2 impulseVector = Vector2Scale(normal, impulse);
-                    p1.velocity = Vector2Subtract(p1.velocity, impulseVector);
-                    p2.velocity = Vector2Add(p2.velocity, impulseVector);
+                    p1Vel = Vector2Subtract(p1Vel, impulseVector);
+                    p2Vel = Vector2Add(p2Vel, impulseVector);
                 }
             }
 
@@ -435,11 +454,12 @@ void ComputeForces(std::vector<Particle> &parts, int start, int end, float gravC
             // Gravitational force calculation
             if (dist > 20.0f)
             { // Only apply gravity if particles are not colliding
-                SetGravitationalPull(p1, p2, force);
+                SetGravitationalPull(p1Vel, p1Pos, p2Vel, p2Pos, force);
             }
 
-            p1.potEnergy += force;
-            //p2.potEnergy += force;
+            parts.potEnergy[i] += force;
         }
     }
+
+    UpdateParticles(parts, start, end, gravConst);
 }

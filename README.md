@@ -12,6 +12,9 @@ Feel free to use this repo for your own use.
 - In-game gravity manipulation
 - Basic multi-threading capabilities
 
+## Compatibility
+The project was compiled with -Ofast flags, significantly increasing performance, but this means that your system must have AVX instructions. Most CPUs made in the last decade have AVX instructions.
+
 ![image](Assets/thumbnail.png)
 
 
@@ -51,7 +54,7 @@ This is a todo list of improvements I am planning on implementing as the project
 - [ ] Barnes-Hut model (Allowing for millions of particles)
 - [ ] Better parameter adjustment UI
 - [x] Coloured controls in UI for readability and accessibility
-- [x] Multi threading support (currently very terribly implemented)
+- [x] Multi-threading support (currently it has a very basic implementation)
 - [ ] Sound effects on collision
 - [ ] Background music?
 - [ ] Individual particle manipulation
