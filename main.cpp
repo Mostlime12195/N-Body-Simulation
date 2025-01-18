@@ -389,7 +389,7 @@ void UpdateParticles(Particles &parts, int start, int end, float gravConst)
 
         parts.potEnergy[i] = 0.0f; // Resets it for the next frame.
 
-        parts.color[i] = ColorLerp({0U, 12U, 255U, 255U}, {255U, 12U, 0U, 225U}, normalizedEnergy);
+        parts.color[i] = ColorLerp({0U, 12U, 255U, 255U}, {255U, 12U, 0U, 255U}, normalizedEnergy);
 
         // Update position after resolving collisions and applying forces
         p1Pos.x += p1Vel.x * GetFrameTime();
