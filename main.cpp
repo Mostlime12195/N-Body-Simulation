@@ -39,8 +39,8 @@ int main(void)
 
     bool spawn_on_load = true; // Load particles
 
-    int stepSizeX = 130;
-    int stepSizeY = 130;
+    int stepSizeX = 150;
+    int stepSizeY = 150;
 
     const int threadCount = 7;
 
@@ -65,6 +65,7 @@ int main(void)
     Vector2 fin_pos;
 
     std::vector<std::thread> threads;
+    threads.reserve(threadCount);
 
     if (spawn_on_load)
     {
@@ -77,7 +78,7 @@ int main(void)
 
     const Texture2D texture = LoadTexture("Assets/particle.png");
 
-    SetTargetFPS(60); // Set our game to run at 60 frames-per-second
+    SetTargetFPS(200); // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
     // Main game loop
@@ -221,7 +222,7 @@ int main(void)
 
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
-            DrawLineEx(init_pos, GetScreenToWorld2D(GetMousePosition(), camera), 5.0f,{Clamp(Normalize(0.5 * pow(Vector2Distance(GetScreenToWorld2D(GetMousePosition(), camera), init_pos), 2.0f), 0.0f, 1000.0f), 0, 255.0f), 0U, 0U, 255U});
+            DrawLineEx(init_pos, GetScreenToWorld2D(GetMousePosition(), camera), 5.0f,{Clamp(Normalize(0.5 * pow(Vector2Distance(GetScreenToWorld2D(GetMousePosition(), camera), init_pos), 2.0f), 0.0f, 1000.0f), 0, 255U), 0U, 0U, 255U});
         }
         
 
